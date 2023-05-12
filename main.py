@@ -34,23 +34,34 @@ class Joint():
         joint_def = Box2D.b2RevoluteJointDef(
             bodyA=shape1.box,
             bodyB=shape2.box,
-            localAnchorA=shape1.vertices[randint(0, len(shape1.vertices)-1)] ,
+            localAnchorA=shape1.vertices[randint(0, len(shape1.vertices)-1)],
             localAnchorB=shape2.vertices[randint(0, len(shape2.vertices)-1)],
         )
 
+        num_sides = randint(3, 8)
+        distance = 30 * math.sin(math.pi / num_sides)
+        print(distance)
+
+        joint_def.enableMotor = True  # Enable the motor
+        joint_def.motorSpeed = 2 * 10 ** 3 # Initial motor speed (change as needed)
+        joint_def.maxMotorTorque = 1000 * 10 ** 4 # Maximum torque the motor can exert (change as needed)
+
         self.joint = world.CreateJoint(joint_def)
+        self.motorSpeed = 2 * 10 ** 3
+
 
 class Creature():
     def __init__(self, world):
         self.n_shapes = 5
-        num_chains = 3
-        chain_lengths = [2, 2, 1]  # specify the lengths of each chain
+        num_chains = 2
+        chain_lengths = [3, 2]  # specify the lengths of each chain
         
         self.shapes = []
         for i in range(self.n_shapes):
             self.shapes.append(Shape(world))
 
         connections = []
+        self.joints = []
 
         # connect shapes within each chain
         for i in range(num_chains):
@@ -67,7 +78,7 @@ class Creature():
         shuffle(connections)
 
         for i in range(len(connections)):
-            Joint(world, connections[i][0], connections[i][1])
+            self.joints.append(Joint(world, connections[i][0], connections[i][1]))
         
 
 creature = Creature(world)
@@ -95,6 +106,9 @@ while True:
             vertices = [shape.box.transform * v for v in sub_shape.vertices]
             pygame.draw.polygon(screen, (30 * index, 90, 90), vertices)
 
+    for joint in creature.joints:
+        joint.joint.motorSpeed = randint(-10, 10) * 20**3
+
     keys = pygame.key.get_pressed()
     num_sides = randint(3, 8)
     distance = 30 * math.sin(math.pi / num_sides)
@@ -108,7 +122,6 @@ while True:
     if keys[pygame.K_DOWN]:
         force += (0, 500 * distance**3)
     creature.shapes[0].box.ApplyForceToCenter(force, True)
-
 
     pygame.display.flip()
     clock.tick(60)
