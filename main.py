@@ -21,7 +21,7 @@ class Shape():
     def __init__(self, world):
         self.box = world.CreateDynamicBody(position=(100, 300))
 
-        num_sides = randint(3, 8)
+        num_sides = randint(4, 8)
         distance = 30 * math.sin(math.pi / num_sides)
         self.vertices = [(distance * math.cos(2 * math.pi / num_sides * i) + uniform(-10, 10),
                     distance * math.sin(2 * math.pi / num_sides * i) + uniform(-10, 10))
@@ -39,8 +39,6 @@ class Joint():
         )
 
         num_sides = randint(3, 8)
-        distance = 30 * math.sin(math.pi / num_sides)
-        print(distance)
 
         joint_def.enableMotor = True  # Enable the motor
         joint_def.motorSpeed = 2 * 10 ** 3 # Initial motor speed (change as needed)
@@ -79,7 +77,18 @@ class Creature():
 
         for i in range(len(connections)):
             self.joints.append(Joint(world, connections[i][0], connections[i][1]))
-        
+
+class RayCastCallback(Box2D.b2RayCastCallback):
+    def __init__(self):
+        super().__init__()
+        self.hit = False
+        self.distance = -1.0  # Initialize distance to a negative value
+
+    def ReportFixture(self, fixture, point, normal, fraction):
+        self.hit = True
+        self.distance = fraction  # Store the fraction value as the distance
+        return 0  # Returning 0 terminates the raycast after the first hit
+
 
 creature = Creature(world)
 ground_body = Floor(world)
@@ -99,12 +108,43 @@ while True:
         pygame.draw.polygon(screen, (128, 128, 128), vertices)
     
     index = 0
+    touch_inputs = []
+    raycast_result = [-1.0] * 8  # List to store the distances until contact for the eight directions
+    directions = [0, 1, 2, 3, 4, 5, 6, 7]  # Directions in multiples of 45 degrees
+
     for shape in creature.shapes:
         index += 1
         for fixture in shape.box.fixtures:
             sub_shape = fixture.shape
             vertices = [shape.box.transform * v for v in sub_shape.vertices]
             pygame.draw.polygon(screen, (30 * index, 90, 90), vertices)
+
+            for vertex in vertices:
+                if vertex.y >= ground_body.ground_body.position.y - 12:
+                    touch_inputs.append(1)
+                else:
+                    touch_inputs.append(0)
+        
+            if index == 3:  # For the middle shape (shape number three)
+                center = shape.box.transform * Box2D.b2Vec2(0, 0)  # Center point of the shape
+                raycast_length = 100  # Length of the rays
+
+                callback = RayCastCallback()  # Create an instance of the callback object
+
+                for direction in directions:
+                    angle = direction * (math.pi / 4)  # Convert the direction to radians
+                    raycast_end = center + raycast_length * Box2D.b2Vec2(math.cos(angle), math.sin(angle))
+
+                    world.RayCast(callback, center, raycast_end)  # Perform the raycast for each direction
+                    if callback.hit:
+                        raycast_result[direction] = raycast_length * callback.distance
+
+                    callback.hit = False  # Reset the hit flag for the next raycast
+
+            
+    print(raycast_result)
+    print(touch_inputs)
+                
 
     for joint in creature.joints:
         joint.joint.motorSpeed = randint(-10, 10) * 20**3
