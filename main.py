@@ -108,7 +108,7 @@ while True:
         pygame.draw.polygon(screen, (128, 128, 128), vertices)
     
     index = 0
-    touch_inputs = []
+    touch_inputs = [0] * 5
     raycast_result = [-1.0] * 8  # List to store the distances until contact for the eight directions
     directions = [0, 1, 2, 3, 4, 5, 6, 7]  # Directions in multiples of 45 degrees
 
@@ -119,12 +119,12 @@ while True:
             vertices = [shape.box.transform * v for v in sub_shape.vertices]
             pygame.draw.polygon(screen, (30 * index, 90, 90), vertices)
 
-            for vertex in vertices:
-                if vertex.y >= ground_body.ground_body.position.y - 12:
-                    touch_inputs.append(1)
-                else:
-                    touch_inputs.append(0)
-        
+            for contact_edge in shape.box.contacts:
+                contact = contact_edge.contact
+                if contact.fixtureA.body == shape.box and contact.fixtureB.body == ground_body.ground_body:
+                    touch_inputs[index-1] = 1
+                    break
+
             if index == 3:  # For the middle shape (shape number three)
                 center = shape.box.transform * Box2D.b2Vec2(0, 0)  # Center point of the shape
                 raycast_length = 100  # Length of the rays
@@ -141,10 +141,10 @@ while True:
 
                     callback.hit = False  # Reset the hit flag for the next raycast
 
-            
-    print(raycast_result)
-    print(touch_inputs)
-                
+    joint_angles = [joint.joint.angle for joint in creature.joints]
+    observation = raycast_result + touch_inputs + joint_angles
+    # print("Observation:", observation)
+    print(len(observation))
 
     for joint in creature.joints:
         joint.joint.motorSpeed = randint(-10, 10) * 20**3
