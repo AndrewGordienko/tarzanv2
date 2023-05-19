@@ -98,8 +98,9 @@ class Simulation():
         self.action = 0
         self.reward = 0
         self.done = False
+        self.score = 0
 
-        origin_position = creature.shapes[0].box.position
+        self.reference_position = Box2D.b2Vec2(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 10)
         self.prev_distance = 0
 
         while not self.done:
@@ -157,10 +158,9 @@ class Simulation():
                 self.action = randint(-10, 10)
                 joint.joint.motorSpeed = agent.choose_action(self.observation, direction) * 20**3
 
-            # Calculate the distance from the origin
-            current_position = creature.shapes[0].box.position
-            distance_from_origin = math.sqrt((current_position.x - origin_position.x) ** 2 +
-                                             (current_position.y - origin_position.y) ** 2)
+            # Calculate the distance from the reference position (middle of the floor)
+            current_position = creature.shapes[2].box.position
+            distance_from_reference = (current_position - self.reference_position).length
 
             # Check if the middle body touches the ground
             middle_shape = creature.shapes[2]
@@ -168,20 +168,22 @@ class Simulation():
             for contact_edge in middle_body.contacts:
                 contact = contact_edge.contact
                 if contact.fixtureA.body == middle_body and contact.fixtureB.body == ground_body.ground_body:
-                    self.reward = -100  # Set reward to -100 if middle body touches the ground
                     self.done = True
+                    self.score -= 100
                     break
 
-            # Check if the distance from origin increased or decreased
-            if distance_from_origin > self.prev_distance:
-                self.reward = 1  # Set reward to 1 if the robot moves away from the origin
-            elif distance_from_origin < self.prev_distance:
-                self.reward = -1  # Set reward to -1 if the robot moves towards the origin
+            # Check if the distance from the reference increased or decreased
+            if distance_from_reference > self.prev_distance:
+                self.reward = 1  # Set reward to 1 if the robot moves away from the reference position
+                self.score += 1
+            elif distance_from_reference < self.prev_distance:
+                self.reward = -1  # Set reward to -1 if the robot moves towards the reference position
+                self.score += -1
             else:
                 self.reward = 0  # Set reward to 0 if there is no change in distance
 
             # Update the previous distance
-            self.prev_distance = distance_from_origin
+            self.prev_distance = distance_from_reference
 
             keys = pygame.key.get_pressed()
             num_sides = randint(3, 8)
@@ -199,3 +201,4 @@ class Simulation():
 
             pygame.display.flip()
             clock.tick(60)
+          
