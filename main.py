@@ -10,3 +10,5 @@ agent = Agent()
 direction = randint(0, 1)
 simulation = Simulation()
 simulation.run_through(agent, direction)
+
+print(simulation.score)
