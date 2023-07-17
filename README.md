@@ -1,5 +1,5 @@
 to do
-- average per episode
+- average per episode [X]
 - choose action function
 - review paper
 - implement ppo
