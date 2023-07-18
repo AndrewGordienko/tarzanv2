@@ -1,6 +1,7 @@
 to do
 - average per episode [X]
-- choose action function
+- choose action function [X}
+- create replay buffer
 - review paper
 - implement ppo
 - train ppo, use as basis to teach noisy network
