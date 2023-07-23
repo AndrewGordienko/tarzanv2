@@ -4,7 +4,7 @@ from models import actor_network, critic_network
 from memory_storage import ReplayBuffer
 
 BATCH_SIZE = 64
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.001
 
 class Agent:
     def __init__(self, alpha=0.0003):
@@ -14,13 +14,18 @@ class Agent:
         self.gae_lambda = 0.95
         self.entropy_weight = 0.001
 
+        self.entropy_weight_start = 0.01
+        self.entropy_weight_end = 0.001
+        self.entropy_weight_decay = 0.995
+
         self.actor = actor_network()
         self.critic = critic_network()
         self.memory = ReplayBuffer()
         self.device = torch.device("cpu")
 
-        self.optimizer = torch.optim.Adam(
-            list(self.actor.parameters()) + list(self.critic.parameters()), lr=LEARNING_RATE)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=LEARNING_RATE)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=LEARNING_RATE)
+
 
     def choose_action(self, observation):
         with torch.no_grad():
@@ -50,10 +55,17 @@ class Agent:
         values_ = self.critic(states_).detach()
         advantages = self.compute_advantages(rewards, dones, values, values_)
 
+        # Normalize advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Normalize rewards
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+
         for _ in range(self.n_epochs):
             old_log_probs = self.actor(states).log_prob(actions)
 
-            self.optimizer.zero_grad()
+            self.actor.optimizer.zero_grad()
+            self.critic.optimizer.zero_grad()
 
             # Compute critic loss
             critic_values = self.critic(states)
@@ -72,5 +84,15 @@ class Agent:
             # Compute total loss
             loss = critic_loss + actor_loss + self.entropy_weight * entropy_loss
 
+            # Compute total loss
             loss.backward()
-            self.optimizer.step()
+
+            # Clip the gradient norms for stability
+            torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 1)
+            torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 1)
+
+            # Update the networks
+            self.actor.optimizer.step()
+            self.critic.optimizer.step()
+
+        self.entropy_weight *= self.entropy_weight_decay
