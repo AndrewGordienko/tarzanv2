@@ -7,11 +7,12 @@ from torch.autograd import Variable
 from brain import Agent
 
 env = gym.make('BipedalWalker-v3', render_mode="human")
+
 agent = Agent()
 
 best_reward = float("-inf")
 average_reward = 0
-EPISODES = 100
+EPISODES = 500
 
 for i in range(1, EPISODES):
     score = 0
