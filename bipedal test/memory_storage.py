@@ -10,7 +10,7 @@ env = gym.make('BipedalWalker-v3', render_mode="human")
 
 DEVICE = torch.device("cpu")
 MEM_SIZE = 1000000
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 
 class ReplayBuffer:
     def __init__(self):
