@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.distributions import Normal
 import gym
 
-env = gym.make('BipedalWalker-v3')
+env = gym.make('BipedalWalker-v3', render_mode="human")
 FC1_DIMS = 1024
 FC2_DIMS = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
