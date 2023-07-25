@@ -96,3 +96,5 @@ class Agent:
             self.critic.optimizer.step()
 
         self.entropy_weight *= self.entropy_weight_decay
+
+
