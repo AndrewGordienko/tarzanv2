@@ -5,6 +5,7 @@ from memory_storage import ReplayBuffer
 
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
+torch.autograd.set_detect_anomaly(True)
 
 class Agent:
     def __init__(self, alpha=0.0003):
@@ -12,28 +13,24 @@ class Agent:
         self.policy_clip = 0.2
         self.n_epochs = 4
         self.gae_lambda = 0.95
-        self.entropy_weight = 0.001
-
-        self.entropy_weight_start = 0.01
-        self.entropy_weight_end = 0.001
-        self.entropy_weight_decay = 0.995
+        self.entropy_weight = 0.01
 
         self.actor = actor_network()
         self.critic = critic_network()
         self.memory = ReplayBuffer()
         self.device = torch.device("cpu")
 
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=LEARNING_RATE)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=LEARNING_RATE)
-
+        self.optimizer = torch.optim.Adam(
+            list(self.actor.parameters()) + list(self.critic.parameters()), lr=0.001)
 
     def choose_action(self, observation):
-        with torch.no_grad():
-            observation = torch.FloatTensor(observation).to(self.device).unsqueeze(0)
-            policy_dist = self.actor(observation)
-            action = policy_dist.sample()
-            return action[0]
-            
+        observation = torch.FloatTensor(observation).to(self.device).unsqueeze(0)
+        policy_dist = self.actor(observation)
+        action = policy_dist.sample()
+        log_prob = policy_dist.log_prob(action)
+        return action.detach().cpu().numpy()[0], log_prob.detach().cpu().numpy()[0]
+
+
     def compute_advantages(self, rewards, dones, values, next_values):
         gae = 0
         advantages = torch.zeros_like(rewards).to(self.device)
@@ -49,52 +46,34 @@ class Agent:
         if self.memory.mem_count < BATCH_SIZE:
             return
 
-        states, actions, rewards, states_, dones = self.memory.sample()
-
-        values = self.critic(states).detach()
-        values_ = self.critic(states_).detach()
-        advantages = self.compute_advantages(rewards, dones, values, values_)
-
-        # Normalize advantages
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-        # Normalize rewards
-        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-
         for _ in range(self.n_epochs):
-            old_log_probs = self.actor(states).log_prob(actions)
+            states, actions, log_probs, rewards, states_, dones = self.memory.sample()
 
-            self.actor.optimizer.zero_grad()
-            self.critic.optimizer.zero_grad()
+            values = self.critic(states).squeeze()
+            next_values = self.critic(states_).squeeze()
 
-            # Compute critic loss
-            critic_values = self.critic(states)
-            critic_loss = (rewards + self.gamma * values_ * (1 - dones) - critic_values).pow(2).mean()
+            advantages = self.compute_advantages(rewards, dones, values, next_values)
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-            # Compute actor loss
-            new_log_probs = self.actor(states).log_prob(actions)
-            ratio = (new_log_probs - old_log_probs).exp()
-            surr1 = ratio * advantages.unsqueeze(1)
-            surr2 = torch.clamp(ratio, 1.0 - self.policy_clip, 1.0 + self.policy_clip) * advantages.unsqueeze(1)
+            new_log_probs = self.actor(states).log_prob(actions).squeeze()
+            ratio = torch.exp(new_log_probs - log_probs)
+
+            advantages = advantages.view(-1, 1)
+            surr1 = ratio * advantages
+            surr2 = torch.clamp(ratio, 1.0 - self.policy_clip, 1.0 + self.policy_clip) * advantages
             actor_loss = - torch.min(surr1, surr2).mean()
 
-            # Compute entropy loss
+            returns = rewards + self.gamma * next_values * (1 - dones)
+            critic_loss = ((returns - values)**2).mean()
+
             entropy_loss = - self.actor(states).entropy().mean()
 
-            # Compute total loss
-            loss = critic_loss + actor_loss + self.entropy_weight * entropy_loss
+            #loss = actor_loss + 0.5 * critic_loss - self.entropy_weight * entropy_loss
+            loss = 0.5 * critic_loss + actor_loss - self.entropy_weight * entropy_loss
 
-            # Compute total loss
+            self.optimizer.zero_grad()
             loss.backward()
-
-            # Clip the gradient norms for stability
             torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 1)
             torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 1)
-
-            # Update the networks
-            self.actor.optimizer.step()
-            self.critic.optimizer.step()
-
-        self.entropy_weight *= self.entropy_weight_decay
-
-
+            self.optimizer.step()
+        
