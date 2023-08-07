@@ -3,9 +3,10 @@ to do
 - choose action function [X]
 - create a replay buffer [X]
 - infrastructure for the front end, brain, and environment to interact [X]
-- review paper
-- implement ppo
-- train ppo, use as a basis to teach noisy network
+- review paper [X]
+- implement ppo [X]
+- train ppo, use as a basis to teach noisy network for biped
+- train ppo, use as a basis to teach noisy network for 5 shapes
 - visual look at what happens
 - create shapes in 3d
 - movement initialization
