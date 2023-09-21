@@ -5,7 +5,7 @@ to do
 - infrastructure for the front end, brain, and environment to interact [X]
 - review paper [X]
 - implement ppo [X]
-- train ppo, use as a basis to teach noisy network for biped
+- train ppo, use as a basis to teach noisy network for biped [X]
 - train ppo, use as a basis to teach noisy network for 5 shapes
 - visual look at what happens
 - create shapes in 3d
